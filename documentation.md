@@ -47,3 +47,11 @@
 - **Action:** "Get email (V2)"
 - **Extracted fields:** From, Subject, Body, ReceivedDateTime
 - **Outcome:** Email metadata captured as named dynamic content
+
+#### Task 5 — Add Groq HTTP Action
+
+- **Action:** HTTP (POST)
+- **URL:** `https://api.groq.com/openai/v1/chat/completions`
+- **Auth header:** `Authorization: Bearer [GROQ_API_KEY]`
+- **Body:** Structured JSON using ESL system prompt + email metadata
+- **Outcome:** Groq API returns structured AI response
