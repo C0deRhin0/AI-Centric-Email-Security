@@ -55,3 +55,9 @@
 - **Auth header:** `Authorization: Bearer [GROQ_API_KEY]`
 - **Body:** Structured JSON using ESL system prompt + email metadata
 - **Outcome:** Groq API returns structured AI response
+
+#### Task 6 — Store Groq API Key in Environment Variables
+
+- **Secret storage:** Power Automate Environment Variables
+- **Rule:** Never paste the API key directly into the HTTP action body
+- **Outcome:** Groq API key is securely referenced in the flow
