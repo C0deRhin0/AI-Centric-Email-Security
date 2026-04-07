@@ -61,3 +61,10 @@
 - **Secret storage:** Power Automate Environment Variables
 - **Rule:** Never paste the API key directly into the HTTP action body
 - **Outcome:** Groq API key is securely referenced in the flow
+
+#### Task 7 — Parse Groq Response JSON
+
+- **Action:** "Parse JSON"
+- **Source:** HTTP response body
+- **Schema:** Generated from a sample Groq response payload
+- **Outcome:** AI fields are available for downstream routing and templates
