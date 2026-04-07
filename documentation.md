@@ -28,3 +28,10 @@
 - **Flow name:** `ESL AI Automation`
 - **Location:** `https://flow.microsoft.com` → Create → **Automated cloud flow**
 - **Outcome:** New flow created and ready for trigger configuration
+
+#### Task 2 — Add Outlook Trigger with Subject Filter
+
+- **Trigger:** "When a new email arrives (V3)" (Outlook)
+- **Folder:** Inbox
+- **Subject filter:** `[ESL-AUTO]`
+- **Outcome:** Flow triggers only on tagged emails
