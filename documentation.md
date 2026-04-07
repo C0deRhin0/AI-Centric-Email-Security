@@ -35,3 +35,9 @@
 - **Folder:** Inbox
 - **Subject filter:** `[ESL-AUTO]`
 - **Outcome:** Flow triggers only on tagged emails
+
+#### Task 3 — Add Case-Insensitive Trigger Expression
+
+- **Expression:** `contains(toLower(triggerOutputs()?['body/subject']), '[esl-auto]')`
+- **Usage:** Configure in trigger settings to enforce case-insensitive match
+- **Outcome:** Trigger is resilient to subject casing variations
