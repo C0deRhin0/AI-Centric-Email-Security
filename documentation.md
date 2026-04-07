@@ -41,3 +41,9 @@
 - **Expression:** `contains(toLower(triggerOutputs()?['body/subject']), '[esl-auto]')`
 - **Usage:** Configure in trigger settings to enforce case-insensitive match
 - **Outcome:** Trigger is resilient to subject casing variations
+
+#### Task 4 — Add "Get Email (V2)" Metadata Extraction
+
+- **Action:** "Get email (V2)"
+- **Extracted fields:** From, Subject, Body, ReceivedDateTime
+- **Outcome:** Email metadata captured as named dynamic content
