@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ESL AI Response Schema",
+  "description": "Structured JSON response from Groq API (LLaMA 3.3-70B) for email security threat analysis",
+  "type": "object",
+  "required": [
+    "verdict",
+    "threat_classification",
+    "indicators",
+    "recommendation",
+    "operator_insights",
+    "confidence_score"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "description": "The overall security verdict for the analyzed email",
+      "enum": ["SAFE", "SUSPICIOUS", "MALICIOUS", "ACKNOWLEDGEMENT"]
+    },
+    "threat_classification": {
+      "type": "string",
+      "description": "Classification of the threat type",
+      "enum": ["Phishing", "Spam", "Malware", "BEC", "Legitimate"]
+    },
+    "indicators": {
+      "type": "array",
+      "description": "List of specific red flags or indicators detected during analysis",
+      "items": {
+        "type": "string",
+        "examples": [
+          "Sender address mismatch detected",
+          "Generic impersonal greeting",
+          "Urgency or threat language detected",
+          "Poor spelling, grammar, and formatting",
+          "Suspicious attachment detected",
+          "Executive name impersonation",
+          "Malicious or suspicious link detected",
+          "SPF/DKIM/DMARC authentication failure"
+        ]
+      },
+      "minItems": 0
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Actionable recommendation for the employee who forwarded the email",
+      "examples": [
+        "Do not click any links. Delete the email immediately.",
+        "No action needed — this email appears safe.",
+        "Do not reply. Report to IT security team and forward as attachment."
+      ]
+    },
+    "operator_insights": {
+      "type": "string",
+      "description": "Professional, free-text paragraph (2-4 sentences) suitable for inclusion in an official security response email"
+    },
+    "confidence_score": {
+      "type": "integer",
+      "description": "Confidence level in the verdict, 0-100",
+      "minimum": 0,
+      "maximum": 100,
+      "examples": [95, 72, 88, 45]
+    }
+  },
+  "additionalProperties": false,
+  "example": {
+    "verdict": "SUSPICIOUS",
+    "threat_classification": "Phishing",
+    "indicators": [
+      "Sender address mismatch: displays as 'support@paypal.com' but originates from 'support-paypal.gq'",
+      "Generic impersonal greeting: 'Dear valued customer'",
+      "Urgency language: 'Your account will be suspended within 24 hours'",
+      "Suspicious link: 'https://paypal-verify.gq/login' resolves to non-PayPal IP"
+    ],
+    "recommendation": "Do not click any links. Delete the email immediately and do not reply.",
+    "operator_insights": "Our analysis detected multiple indicators consistent with a phishing attack. The sender domain does not match legitimate PayPal infrastructure, the greeting is generic, and the link resolves to a known malicious domain. The email attempts to create urgency to bypass your judgment. This appears to be a targeted credential harvesting attempt.",
+    "confidence_score": 94
+  }
+}
