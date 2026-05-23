@@ -1,0 +1,172 @@
+{
+  "$schema": "./flow-schema.json",
+  "title": "ESL AI Automation — Flow Definition",
+  "description": "Documented structure of the Power Automate flow for ESL email security automation. Use this as a reference when building the flow manually in Power Automate.",
+  "version": "1.0.0",
+  "lastUpdated": "April 2026",
+  "status": "Production Ready",
+  "flowName": "ESL AI Automation",
+  "flowType": "Automated cloud flow",
+  "connector": "Microsoft Outlook",
+
+  "triggers": [
+    {
+      "name": "When a new email arrives (V3)",
+      "type": "Trigger",
+      "connector": "Outlook",
+      "config": {
+        "folder": "Inbox",
+        "includeAttachments": false,
+        "subjectFilter": "[ESL-AUTO]"
+      },
+      "filterExpression": "contains(toLower(triggerOutputs()?['body/subject']), '[esl-auto]')",
+      "outputs": {
+        "from": "triggerOutputs()?['body/from']",
+        "subject": "triggerOutputs()?['body/subject']",
+        "body": "triggerOutputs()?['body/body']",
+        "receivedDateTime": "triggerOutputs()?['body/receivedDateTime']",
+        "messageId": "triggerOutputs()?['body/messageId']"
+      },
+      "notes": "Case-insensitive subject filter ensures trigger fires regardless of tag capitalization."
+    }
+  ],
+
+  "actions": [
+    {
+      "step": 1,
+      "name": "Extract Email Metadata",
+      "type": "Get email (V2)",
+      "connector": "Outlook",
+      "inputs": {
+        "messageId": "@{triggerOutputs()?['body/messageId']}"
+      },
+      "outputs": {
+        "from": "@{body('Get_email_(V2)')?['from']}",
+        "subject": "@{body('Get_email_(V2)')?['subject']}",
+        "body": "@{body('Get_email_(V2)')?['body']}",
+        "receivedDateTime": "@{body('Get_email_(V2)')?['receivedDateTime']}"
+      },
+      "notes": "Provides reliable extraction of email metadata for downstream use."
+    },
+    {
+      "step": 2,
+      "name": "Call Groq API",
+      "type": "HTTP",
+      "config": {
+        "method": "POST",
+        "uri": "https://api.groq.com/openai/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "@{environmentVariable('GROQ_API_KEY')}"
+        },
+        "body": {
+          "model": "llama-3.3-70b-versatile",
+          "messages": [
+            {
+              "role": "system",
+              "content": "[SYSTEM_PROMPT] See ../shared/system-prompt.txt"
+            },
+            {
+              "role": "user",
+              "content": "Forwarded by: @{triggerOutputs()?['body/from']}\nOriginal Subject: @{triggerOutputs()?['body/subject']}\nEmail Body:\n@{triggerOutputs()?['body/body']}"
+            }
+          ],
+          "response_format": {
+            "type": "json_object"
+          }
+        }
+      },
+      "notes": "Groq API key stored in Power Automate Environment Variable — NOT hardcoded."
+    },
+    {
+      "step": 3,
+      "name": "Parse AI Response",
+      "type": "Parse JSON",
+      "inputs": {
+        "content": "@{body('HTTP')}",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "verdict": { "type": "string" },
+            "threat_classification": { "type": "string" },
+            "indicators": { "type": "array", "items": { "type": "string" } },
+            "recommendation": { "type": "string" },
+            "operator_insights": { "type": "string" },
+            "confidence_score": { "type": "integer" }
+          }
+        }
+      },
+      "outputs": {
+        "verdict": "@{body('Parse_JSON')?['verdict']}",
+        "threat_classification": "@{body('Parse_JSON')?['threat_classification']}",
+        "indicators": "@{body('Parse_JSON')?['indicators']}",
+        "recommendation": "@{body('Parse_JSON')?['recommendation']}",
+        "operator_insights": "@{body('Parse_JSON')?['operator_insights']}",
+        "confidence_score": "@{body('Parse_JSON')?['confidence_score']}"
+      },
+      "notes": "Extracts all 6 AI output fields as dynamic content for downstream routing."
+    },
+    {
+      "step": 4,
+      "name": "Confidence Branching",
+      "type": "Condition",
+      "expression": "@{greaterOrEquals(body('Parse_JSON')?['confidence_score'], 85)}",
+      "branches": {
+        "yes": ["Route by Verdict (Auto-Send)"],
+        "no": ["Create Draft + Teams Notification"]
+      },
+      "notes": "Confidence threshold: 85%. High confidence → auto-send. Low confidence → draft + analyst alert."
+    },
+    {
+      "step": 5,
+      "name": "Route by Verdict",
+      "type": "Switch",
+      "expression": "@{body('Parse_JSON')?['verdict']}",
+      "cases": {
+        "ACKNOWLEDGEMENT": {
+          "action": "Reply to email (V3)",
+          "template": "templates/acknowledgement.html",
+          "subject": "[Company] Cybersecurity: ACKNOWLEDGEMENT – @{triggerOutputs()?['body/subject']}"
+        },
+        "SAFE": {
+          "action": "Reply to email (V3)",
+          "template": "templates/safe.html",
+          "subject": "[Company] Cybersecurity: ASSESSMENT – @{triggerOutputs()?['body/subject']}"
+        },
+        "SUSPICIOUS": {
+          "action": "Reply to email (V3)",
+          "template": "templates/suspicious-malicious.html",
+          "subject": "[Company] Cybersecurity: ASSESSMENT – @{triggerOutputs()?['body/subject']}"
+        },
+        "MALICIOUS": {
+          "action": "Reply to email (V3)",
+          "template": "templates/suspicious-malicious.html",
+          "subject": "[Company] Cybersecurity: ASSESSMENT – @{triggerOutputs()?['body/subject']}",
+          "additionalActions": [
+            "Send Teams alert with domain block prefill"
+          ]
+        }
+      },
+      "notes": "Routes to template based on AI verdict. MALICIOUS gets additional domain block flagging."
+    }
+  ],
+
+  "environmentVariables": {
+    "GROQ_API_KEY": {
+      "type": "string",
+      "value": "[SET_IN_POWER_AUTOMATE_ENVIRONMENT_VARIABLES]",
+      "notes": "Never hardcode. Set via Power Automate → Solutions → Environment Variables."
+    }
+  },
+
+  "errorHandling": {
+    "groqApiFailure": {
+      "behavior": "Send Teams alert to analyst with original email metadata",
+      "configureRunAfter": "HTTP action → set to handle failures"
+    },
+    "malformedAiResponse": {
+      "behavior": "Create draft with fallback message. Do NOT auto-send.",
+      "notes": "If Parse JSON fails or missing critical fields, default to draft + analyst notification."
+    }
+  }
+}
