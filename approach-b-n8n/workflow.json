@@ -1,0 +1,233 @@
+{
+  "name": "ESL AI Automation",
+  "nodes": [
+    {
+      "id": "trigger-outlook",
+      "name": "Outlook Trigger",
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "operations": {
+          "poll": true
+        },
+        "resource": "message",
+        "pollFolder": "inbox",
+        "pollSubjectFilter": "[ESL-AUTO]",
+        "options": {}
+      }
+    },
+    {
+      "id": "groq-http-request",
+      "name": "Groq AI Threat Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama-3.3-70b-versatile"
+            },
+            {
+              "name": "messages",
+              "value": "[{\"role\":\"system\",\"content\":\"You are an expert email security analyst for a corporate cybersecurity team. Analyze the following forwarded suspicious email using heuristic, hyperlink, OSINT, and header authentication principles. Return a structured JSON response with the following fields: verdict (one of: SAFE, SUSPICIOUS, MALICIOUS, ACKNOWLEDGEMENT), threat_classification (Phishing/Spam/Malware/BEC/Legitimate), indicators (array of strings), recommendation (string), operator_insights (a professional free-text paragraph), confidence_score (integer 0-100).\"},{\"role\":\"user\",\"content\":\"Forwarded by: {{ $('Outlook Trigger').item.json.from }}\\nOriginal Subject: {{ $('Outlook Trigger').item.json.subject }}\\nEmail Body:\\n{{ $('Outlook Trigger').item.json.bodyPreview }}\"}]"
+            },
+            {
+              "name": "response_format",
+              "value": "{\"type\":\"json_object\"}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "code-parse-ai",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "parameters": {
+        "language": "javaScript",
+        "code": "const raw = $input.item.json.choices[0].message.content;\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    verdict: 'ACKNOWLEDGEMENT',\n    threat_classification: 'Unknown',\n    indicators: ['AI response could not be parsed'],\n    recommendation: 'A cybersecurity team member will review this email manually.',\n    operator_insights: 'The AI analysis returned an unparseable response. Your forwarded email has been flagged for manual review by the cybersecurity team.',\n    confidence_score: 0\n  };\n}\nreturn [{ json: parsed }];"
+      }
+    },
+    {
+      "id": "switch-verdict",
+      "name": "Route by Verdict",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1150, 300],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.verdict }}",
+        "rules": [
+          {
+            "outputKey": "ACKNOWLEDGEMENT",
+            "value2": "ACKNOWLEDGEMENT"
+          },
+          {
+            "outputKey": "SAFE",
+            "value2": "SAFE"
+          },
+          {
+            "outputKey": "SUSPICIOUS",
+            "value2": "SUSPICIOUS"
+          },
+          {
+            "outputKey": "MALICIOUS",
+            "value2": "MALICIOUS"
+          }
+        ],
+        "fallbackOutput": ""
+      }
+    },
+    {
+      "id": "send-acknowledgement",
+      "name": "Send ACKNOWLEDGEMENT Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1450, 100],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "messageId": "",
+        "to": "={{ $('Outlook Trigger').item.json.from }}",
+        "subject": "[Company] Cybersecurity: ACKNOWLEDGEMENT – {{ $('Outlook Trigger').item.json.subject }}",
+        "bodyType": "HTML",
+        "body": "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);\"><tr><td style=\"padding:32px 32px 0 32px;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;\"><tr><td style=\"background-color:#2563eb;padding:20px;border-radius:8px 8px 0 0;text-align:center;\"><h1 style=\"color:#fff;margin:0;font-size:18px;font-weight:600;\">Cybersecurity: ACKNOWLEDGEMENT</h1></td></tr></table><p style=\"font-size:15px;color:#1a1a1a;margin-top:24px;margin-bottom:8px;\">Hello,</p><p style=\"font-size:15px;color:#1a1a1a;margin-top:0;margin-bottom:20px;\">Greetings!</p><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">This is to acknowledge receipt of your forwarded email regarding the reported incident <strong>(Reference Number: ESL-2026-{{ $('Outlook Trigger').item.json.id.substring(0,8) }})</strong>.</p><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#f0f4ff;border-left:4px solid #2563eb;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;\"><p style=\"font-size:14px;color:#333;line-height:1.6;margin:0;\">{{ $('Parse AI Response').item.json.operator_insights }}</p></td></tr></table><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fefce8;border-left:4px solid #ca8a04;margin-bottom:24px;\"><tr><td style=\"padding:12px 20px;\"><p style=\"font-size:14px;color:#333;margin:0;\"><strong>RECOMMENDATION:</strong> {{ $('Parse AI Response').item.json.recommendation }}</p></td></tr></table><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Thank you for your cooperation, time, and effort in this matter. Your input has been very helpful. Please don't hesitate to report anything that seems unusual \u2014 every report, even if harmless, strengthens our defenses. Your quick actions make a real difference.</p><p style=\"font-size:14px;color:#333;margin-bottom:8px;\">Stay safe,</p><p style=\"font-size:14px;color:#333;margin-top:0;margin-bottom:4px;\"><strong>[Your Name]</strong></p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">Cybersecurity Department</p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">[Your Company]</p><p style=\"font-size:13px;color:#2563eb;margin-top:0;margin-bottom:16px;\"><a href=\"mailto:[yourname]@[company-domain].com\" style=\"color:#2563eb;\">[yourname]@[company-domain].com</a></p></td></tr></table></body></html>"
+      }
+    },
+    {
+      "id": "send-safe",
+      "name": "Send SAFE Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1450, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "messageId": "",
+        "to": "={{ $('Outlook Trigger').item.json.from }}",
+        "subject": "[Company] Cybersecurity: ASSESSMENT – {{ $('Outlook Trigger').item.json.subject }}",
+        "bodyType": "HTML",
+        "body": "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);\"><tr><td style=\"padding:32px 32px 0 32px;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;\"><tr><td style=\"background-color:#16a34a;padding:20px;border-radius:8px 8px 0 0;text-align:center;\"><h1 style=\"color:#fff;margin:0;font-size:18px;font-weight:600;\">Cybersecurity: ASSESSMENT \u2014 SAFE</h1></td></tr></table><p style=\"font-size:15px;color:#1a1a1a;margin-top:24px;margin-bottom:8px;\">Hello,</p><p style=\"font-size:15px;color:#1a1a1a;margin-top:0;margin-bottom:20px;\">Greetings!</p><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">This is to acknowledge receipt of your forwarded email regarding the reported incident <strong>(Reference Number: ESL-2026-{{ $('Outlook Trigger').item.json.id.substring(0,8) }})</strong>.</p><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#f0fdf4;border:2px solid #16a34a;border-radius:8px;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;text-align:center;\"><p style=\"font-size:28px;margin:0 0 4px 0;\">\u2705</p><p style=\"font-size:16px;color:#166534;font-weight:600;margin:0;\">SAFE</p><p style=\"font-size:13px;color:#166534;margin:4px 0 0 0;\">Upon applying heuristic and technical assessment, this email is flagged as safe.</p></td></tr></table><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Threat Classification:</strong> {{ $('Parse AI Response').item.json.threat_classification }}</p><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Confidence Score:</strong> {{ $('Parse AI Response').item.json.confidence_score }}%</p><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#f0fdf4;border-left:4px solid #16a34a;margin-top:20px;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;\"><p style=\"font-size:14px;color:#333;line-height:1.6;margin:0;\">{{ $('Parse AI Response').item.json.operator_insights }}</p></td></tr></table><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fefce8;border-left:4px solid #ca8a04;margin-bottom:24px;\"><tr><td style=\"padding:12px 20px;\"><p style=\"font-size:14px;color:#333;margin:0;\"><strong>RECOMMENDATION:</strong> {{ $('Parse AI Response').item.json.recommendation }}</p></td></tr></table><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Thank you for your cooperation, time, and effort in this matter. Your input has been very helpful. Please don't hesitate to report anything that seems unusual \u2014 every report, even if harmless, strengthens our defenses. Your quick actions make a real difference.</p><p style=\"font-size:14px;color:#333;margin-bottom:8px;\">Stay safe,</p><p style=\"font-size:14px;color:#333;margin-top:0;margin-bottom:4px;\"><strong>[Your Name]</strong></p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">Cybersecurity Department</p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">[Your Company]</p><p style=\"font-size:13px;color:#2563eb;margin-top:0;margin-bottom:16px;\"><a href=\"mailto:[yourname]@[company-domain].com\" style=\"color:#2563eb;\">[yourname]@[company-domain].com</a></p></td></tr></table></body></html>"
+      }
+    },
+    {
+      "id": "send-suspicious",
+      "name": "Send SUSPICIOUS Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1450, 500],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "messageId": "",
+        "to": "={{ $('Outlook Trigger').item.json.from }}",
+        "subject": "[Company] Cybersecurity: ASSESSMENT – {{ $('Outlook Trigger').item.json.subject }}",
+        "bodyType": "HTML",
+        "body": "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);\"><tr><td style=\"padding:32px 32px 0 32px;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;\"><tr><td style=\"background-color:#ea580c;padding:20px;border-radius:8px 8px 0 0;text-align:center;\"><h1 style=\"color:#fff;margin:0;font-size:18px;font-weight:600;\">Cybersecurity: ASSESSMENT \u2014 SUSPICIOUS</h1></td></tr></table><p style=\"font-size:15px;color:#1a1a1a;margin-top:24px;margin-bottom:8px;\">Hello,</p><p style=\"font-size:15px;color:#1a1a1a;margin-top:0;margin-bottom:20px;\">Greetings!</p><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Upon applying heuristic and technical assessment to the forwarded email, this email is flagged as:</p><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fff7ed;border:2px solid #ea580c;border-radius:8px;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;text-align:center;\"><p style=\"font-size:28px;margin:0 0 4px 0;\">\u26a0\ufe0f</p><p style=\"font-size:16px;color:#9a3412;font-weight:600;margin:0;\">SUSPICIOUS</p><p style=\"font-size:13px;color:#9a3412;margin:4px 0 0 0;\">This email exhibits suspicious characteristics that warrant caution.</p></td></tr></table><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Threat Classification:</strong> {{ $('Parse AI Response').item.json.threat_classification }}</p><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Confidence Score:</strong> {{ $('Parse AI Response').item.json.confidence_score }}%</p><h2 style=\"font-size:15px;color:#9a3412;margin-top:24px;margin-bottom:12px;\">Indicators Detected</h2><ul style=\"font-size:14px;color:#333;line-height:1.8;padding-left:20px;margin-bottom:20px;\">{{ $('Parse AI Response').item.json.indicators.map(i => '<li>' + i + '</li>').join('') }}</ul><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fff7ed;border-left:4px solid #ea580c;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;\"><p style=\"font-size:14px;color:#333;line-height:1.6;margin:0;\">{{ $('Parse AI Response').item.json.operator_insights }}</p></td></tr></table><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fefce8;border-left:4px solid #ca8a04;margin-bottom:24px;\"><tr><td style=\"padding:12px 20px;\"><p style=\"font-size:14px;color:#333;margin:0;\"><strong>RECOMMENDATION:</strong> {{ $('Parse AI Response').item.json.recommendation }}</p></td></tr></table><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Thank you for your cooperation, time, and effort in this matter...</p><p style=\"font-size:14px;color:#333;margin-bottom:8px;\">Stay safe,</p><p style=\"font-size:14px;color:#333;margin-top:0;margin-bottom:4px;\"><strong>[Your Name]</strong></p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">Cybersecurity Department</p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">[Your Company]</p><p style=\"font-size:13px;color:#2563eb;margin-top:0;margin-bottom:16px;\"><a href=\"mailto:[yourname]@[company-domain].com\" style=\"color:#2563eb;\">[yourname]@[company-domain].com</a></p></td></tr></table></body></html>"
+      }
+    },
+    {
+      "id": "send-malicious",
+      "name": "Send MALICIOUS Reply",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [1450, 700],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "messageId": "",
+        "to": "={{ $('Outlook Trigger').item.json.from }}",
+        "subject": "[Company] Cybersecurity: ASSESSMENT – {{ $('Outlook Trigger').item.json.subject }}",
+        "bodyType": "HTML",
+        "body": "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"margin:0;padding:0;background-color:#f4f4f4;font-family:'Segoe UI',Arial,Helvetica,sans-serif;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:600px;margin:20px auto;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);\"><tr><td style=\"padding:32px 32px 0 32px;\"><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;\"><tr><td style=\"background-color:#dc2626;padding:20px;border-radius:8px 8px 0 0;text-align:center;\"><h1 style=\"color:#fff;margin:0;font-size:18px;font-weight:600;\">Cybersecurity: ASSESSMENT \u2014 MALICIOUS</h1></td></tr></table><p style=\"font-size:15px;color:#1a1a1a;margin-top:24px;margin-bottom:8px;\">Hello,</p><p style=\"font-size:15px;color:#1a1a1a;margin-top:0;margin-bottom:20px;\">Greetings!</p><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Upon applying heuristic and technical assessment to the forwarded email, this email is flagged as:</p><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fef2f2;border:2px solid #dc2626;border-radius:8px;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;text-align:center;\"><p style=\"font-size:28px;margin:0 0 4px 0;\">\ud83d\udea8</p><p style=\"font-size:16px;color:#991b1b;font-weight:600;margin:0;\">MALICIOUS</p><p style=\"font-size:13px;color:#991b1b;margin:4px 0 0 0;\">This email exhibits malicious characteristics. Immediate action is recommended.</p></td></tr></table><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Threat Classification:</strong> {{ $('Parse AI Response').item.json.threat_classification }}</p><p style=\"font-size:13px;color:#555;margin-bottom:4px;\"><strong>Confidence Score:</strong> {{ $('Parse AI Response').item.json.confidence_score }}%</p><h2 style=\"font-size:15px;color:#991b1b;margin-top:24px;margin-bottom:12px;\">Indicators Detected</h2><ul style=\"font-size:14px;color:#333;line-height:1.8;padding-left:20px;margin-bottom:20px;\">{{ $('Parse AI Response').item.json.indicators.map(i => '<li>' + i + '</li>').join('') }}</ul><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fef2f2;border-left:4px solid #dc2626;margin-bottom:20px;\"><tr><td style=\"padding:16px 20px;\"><p style=\"font-size:14px;color:#333;line-height:1.6;margin:0;\">{{ $('Parse AI Response').item.json.operator_insights }}</p></td></tr></table><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fefce8;border-left:4px solid #ca8a04;margin-bottom:24px;\"><tr><td style=\"padding:12px 20px;\"><p style=\"font-size:14px;color:#333;margin:0;\"><strong>RECOMMENDATION:</strong> {{ $('Parse AI Response').item.json.recommendation }}</p></td></tr></table><table cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;background-color:#fef2f2;border:2px solid #dc2626;border-radius:8px;margin-bottom:24px;\"><tr><td style=\"padding:14px 20px;\"><p style=\"font-size:13px;color:#991b1b;margin:0;font-weight:600;\">\u26d4 Domain Block Initiated</p><p style=\"font-size:13px;color:#991b1b;margin:6px 0 0 0;\">The sender domain has been flagged for review and domain blocking. A cybersecurity team member will process the block shortly.</p></td></tr></table><p style=\"font-size:14px;color:#333;line-height:1.6;margin-bottom:16px;\">Thank you for your cooperation, time, and effort in this matter...</p><p style=\"font-size:14px;color:#333;margin-bottom:8px;\">Stay safe,</p><p style=\"font-size:14px;color:#333;margin-top:0;margin-bottom:4px;\"><strong>[Your Name]</strong></p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">Cybersecurity Department</p><p style=\"font-size:13px;color:#555;margin-top:0;margin-bottom:4px;\">[Your Company]</p><p style=\"font-size:13px;color:#2563eb;margin-top:0;margin-bottom:16px;\"><a href=\"mailto:[yourname]@[company-domain].com\" style=\"color:#2563eb;\">[yourname]@[company-domain].com</a></p></td></tr></table></body></html>"
+      }
+    }
+  ],
+  "connections": {
+    "Outlook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Groq AI Threat Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq AI Threat Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Route by Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Verdict": {
+      "main": [
+        [
+          {
+            "node": "Send ACKNOWLEDGEMENT Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send SAFE Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send SUSPICIOUS Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send MALICIOUS Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "versionId": "esl-automation-v1.0",
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "tags": ["esl", "email-security", "groq", "automation"]
+}
