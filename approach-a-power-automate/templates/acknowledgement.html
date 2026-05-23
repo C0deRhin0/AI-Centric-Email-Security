@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- ESL ACKNOWLEDGEMENT Template — Power Automate -->
+  <!-- Dynamic fields use Power Automate expression syntax @{...} -->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Segoe UI', Arial, Helvetica, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <tr>
+      <td style="padding: 32px 32px 0 32px;">
+        <!-- Header Banner -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%;">
+          <tr>
+            <td style="background-color: #2563eb; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 18px; font-weight: 600;">Cybersecurity: ACKNOWLEDGEMENT</h1>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Greeting -->
+        <p style="font-size: 15px; color: #1a1a1a; margin-top: 24px; margin-bottom: 8px;">Hello,</p>
+        <p style="font-size: 15px; color: #1a1a1a; margin-top: 0; margin-bottom: 20px;">Greetings!</p>
+
+        <!-- Body Content -->
+        <p style="font-size: 14px; color: #333333; line-height: 1.6; margin-bottom: 16px;">
+          This is to acknowledge receipt of your forwarded email regarding the reported incident
+          <strong>(Reference Number: ESL-2026-@{triggerOutputs()?['body/messageId']})</strong>.
+        </p>
+
+        <!-- AI Operator Insights Block -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #f0f4ff; border-left: 4px solid #2563eb; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 16px 20px;">
+              <p style="font-size: 14px; color: #333333; line-height: 1.6; margin: 0;">
+                @{body('Parse_JSON')?['operator_insights']}
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Recommendation Block -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; background-color: #fefce8; border-left: 4px solid #ca8a04; margin-bottom: 24px;">
+          <tr>
+            <td style="padding: 12px 20px;">
+              <p style="font-size: 14px; color: #333333; margin: 0;">
+                <strong>RECOMMENDATION:</strong>
+                @{body('Parse_JSON')?['recommendation']}
+              </p>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Closing -->
+        <p style="font-size: 14px; color: #333333; line-height: 1.6; margin-bottom: 16px;">
+          Thank you for your cooperation, time, and effort in this matter. Your input has been very helpful.
+          Please don't hesitate to report anything that seems unusual — every report, even if harmless,
+          strengthens our defenses. Your quick actions make a real difference.
+        </p>
+
+        <p style="font-size: 14px; color: #333333; margin-bottom: 8px;">Stay safe,</p>
+        <p style="font-size: 14px; color: #333333; margin-top: 0; margin-bottom: 4px;"><strong>[Your Name]</strong></p>
+        <p style="font-size: 13px; color: #555555; margin-top: 0; margin-bottom: 4px;">Cybersecurity Department</p>
+        <p style="font-size: 13px; color: #555555; margin-top: 0; margin-bottom: 4px;">[Your Company]</p>
+        <p style="font-size: 13px; color: #2563eb; margin-top: 0; margin-bottom: 16px;"><a href="mailto:[yourname]@[company-domain].com" style="color: #2563eb;">[yourname]@[company-domain].com</a></p>
+
+        <p style="font-size: 14px; color: #333333; margin-bottom: 8px; margin-top: 16px;">Regards,</p>
+        <p style="font-size: 14px; color: #333333; margin-top: 0; margin-bottom: 4px;"><strong>[Colleague Name]</strong></p>
+        <p style="font-size: 13px; color: #555555; margin-top: 0; margin-bottom: 4px;">Cybersecurity Department</p>
+        <p style="font-size: 13px; color: #555555; margin-top: 0; margin-bottom: 4px;">[Your Company]</p>
+        <p style="font-size: 13px; color: #2563eb; margin-top: 0; margin-bottom: 24px;"><a href="mailto:[colleague]@[company-domain].com" style="color: #2563eb;">[colleague]@[company-domain].com</a></p>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Confidentiality Footer -->
+  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto 40px auto;">
+    <tr>
+      <td style="padding: 0 32px;">
+        <hr style="border: none; border-top: 1px solid #cccccc; margin-bottom: 16px;">
+        <p style="font-size: 11px; color: #888888; line-height: 1.4; margin: 0;">
+          <strong>CONFIDENTIALITY NOTICE:</strong> This message and any attachments are intended solely for the
+          individual or entity to which they are addressed. If you are not the intended recipient, you are
+          hereby notified that any disclosure, copying, distribution, or taking any action in reliance on
+          the contents of this information is strictly prohibited. If you have received this message in
+          error, please notify the sender immediately and delete this message from your system.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
